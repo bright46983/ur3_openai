@@ -2,6 +2,8 @@ import numpy as np
 from gym import spaces
 from ur3_openai import ur3_env
 from gym.envs.registration import register
+from ur_control.constants import GripperType, JOINT_ORDER
+
 import rospy
 
 # The path is __init__.py of openai_ros, where we import the MovingCubeOneDiskWalkEnv directly
@@ -21,12 +23,11 @@ class UR3PositionEnv(ur3_env.UR3Env):
         self.controllers_type = "ee_transform"
 
         self.num_joints = 6
-        self.init_joints_positions = [1.8391, -1.5659, 1.4889, -1.6421, -1.6115, 0.2656]
         self.joint_lower_limit = [-np.pi,-np.pi/2,-np.pi/2,-np.pi,-np.pi,-np.pi]
         self.joint_upper_limit = [np.pi,np.pi/2,np.pi/2,np.pi,np.pi,np.pi]
 
-        self.tran_upper_limit = [0.2,0.2,0.2,0,0,0] #  [x,y,z,roll,pitch,yaw]
-        self.tran_lower_limit = [-0.2,-0.2,-0.2,-0,-0,-0] #  [x,y,z,roll,pitch,yaw]
+        self.tran_upper_limit = [0.40,0.40,0.40,0,0,0] #  [x,y,z,roll,pitch,yaw]
+        self.tran_lower_limit = [-0.40,-0.40,-0.40,-0,-0,-0] #  [x,y,z,roll,pitch,yaw]
 
         #self.gazebo.unpauseSim()
 
@@ -62,9 +63,9 @@ class UR3PositionEnv(ur3_env.UR3Env):
         Got called before reset sim (our case only world)
         """
         # TODO
-        ...
-        # q = self.init_joints_positions
-        # self.move_joints(q, wait=True, target_time = 10.0)
+        rospy.logwarn("Moving joint to initial position ...")
+        q = self.joint_initial_positions
+        self.move_joints(q, wait=True, target_time = 3.0)
 
 
     def _init_env_variables(self):
@@ -128,7 +129,7 @@ class UR3PositionEnv(ur3_env.UR3Env):
         Decide if episode is done based on the observations
         """
         # TODO
-        done = False
+        done = self.is_ur3_collided
         return done
 
     def _compute_reward(self, observations, done):

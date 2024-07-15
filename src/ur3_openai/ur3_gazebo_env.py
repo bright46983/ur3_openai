@@ -1,13 +1,20 @@
 import rospy
 import gym
+import numpy as np
 from gym.utils import seeding
 from openai_ros.gazebo_connection import GazeboConnection
 from openai_ros.controllers_connection import ControllersConnection
+from ur_control.arm import Arm
+from ur_control.constants import GripperType
+
+
 #https://bitbucket.org/theconstructcore/theconstruct_msgs/src/master/msg/RLExperimentInfo.msg
 from openai_ros.msg import RLExperimentInfo
-from gazebo_msgs.srv import SpawnModel, DeleteModel, GetModelState
+from gazebo_msgs.srv import SpawnModel, DeleteModel, GetModelState, SetModelConfiguration, SetModelConfigurationRequest
 from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
+from controller_manager_msgs.srv import LoadControllerRequest, LoadController, UnloadController, UnloadControllerRequest, SwitchController, SwitchControllerRequest
+import time
 
 # https://github.com/openai/gym/blob/master/gym/core.py
 class UR3GazeboEnv(gym.Env):
@@ -15,14 +22,19 @@ class UR3GazeboEnv(gym.Env):
     def __init__(self, robot_name_space, controllers_list, reset_controls, start_init_physics_parameters=True, reset_world_or_sim="SIMULATION"):
 
         # To reset Simulations
-        rospy.logdebug("START init RobotGazeboEnv")
-        self.gazebo = GazeboConnection(start_init_physics_parameters,reset_world_or_sim)
-        self.controllers_object = ControllersConnection(namespace=robot_name_space, controllers_list=controllers_list)
-        self.reset_controls = reset_controls
-        self.seed()
+        rospy.logwarn("START init RobotGazeboEnv")
+
         self.model_name = 'robot'
         self.model_initial_pose = self.get_model_pose()
-        self.joint_initial_pose = self.get_joints_initial_pose()
+
+        self.reset_controls = reset_controls
+        self.controllers_list = controllers_list
+        self.gazebo = GazeboConnection(start_init_physics_parameters,reset_world_or_sim)
+        self.controllers_object = ControllersConnection(namespace=robot_name_space, controllers_list=controllers_list)
+        
+
+        self.seed()
+        
         
 
         # Set up ROS related variables
@@ -43,7 +55,7 @@ class UR3GazeboEnv(gym.Env):
         if self.reset_controls:
             self.controllers_object.reset_controllers()
 
-        rospy.logdebug("END init RobotGazeboEnv")
+        rospy.logwarn("END init UR3GazeboEnv")
 
     # Env methods
     def seed(self, seed=None):
@@ -63,7 +75,7 @@ class UR3GazeboEnv(gym.Env):
         Here we should convert the action num to movement action, execute the action in the
         simulation and get the observations result of performing that action.
         """
-        rospy.logdebug("START STEP OpenAIROS")
+        rospy.logwarn("START STEP OpenAIROS")
 
         self.gazebo.unpauseSim()
         self._set_action(action)
@@ -74,17 +86,17 @@ class UR3GazeboEnv(gym.Env):
         reward = self._compute_reward(obs, done)
         self.cumulated_episode_reward += reward
 
-        rospy.logdebug("END STEP OpenAIROS")
+        rospy.logwarn("END STEP OpenAIROS")
 
         return obs, reward, done, info
 
     def reset(self):
-        rospy.logdebug("Reseting RobotGazeboEnvironment")
+        rospy.logwarn("Reseting RobotGazeboEnvironment")
         self._reset_sim()
         self._init_env_variables()
         self._update_episode()
         obs = self._get_obs()
-        rospy.logdebug("END Reseting RobotGazeboEnvironment")
+        rospy.logwarn("END Reseting RobotGazeboEnvironment")
         return obs
 
     def close(self):
@@ -93,7 +105,7 @@ class UR3GazeboEnv(gym.Env):
         Use it for closing GUIS and other systems that need closing.
         :return:
         """
-        rospy.logdebug("Closing RobotGazeboEnvironment")
+        rospy.logwarn("Closing RobotGazeboEnvironment")
         rospy.signal_shutdown("Closing RobotGazeboEnvironment")
 
     def _update_episode(self):
@@ -132,33 +144,50 @@ class UR3GazeboEnv(gym.Env):
     def _reset_sim(self):
         """Resets a simulation
         """
-        rospy.logdebug("RESET SIM START")
+        rospy.logwarn("RESET SIM START")
         if self.reset_controls :
-            self.gazebo.pauseSim()
+            #### force reset ur3 model ########
+            # self.gazebo.unpauseSim()
+            # # self.stop_controllers() 
+            # # self.unload_controllers()
+            # # self.delete_model()
+            # # self.spawn_urdf_model()
+            
+            # ###################################
 
-            ##### force reset ur3 model ######## 
-            self.delete_model()
-            self.spawn_urdf_model()
-            ####################################
-            self.gazebo.pauseSim()
-            self.set_model() # set gazebo joint state 
+            # self.gazebo.pauseSim()
+            # time.sleep(2)
+
+            # self.gazebo.resetSim()
+            # self.set_model() # set gazebo joint state 
+            # # time.sleep(2)
+
+            # # rospy.sleep(3)
+            # self.gazebo.unpauseSim()
+            # rospy.logwarn("RESET SIM START")
+
+            # # self.load_controllers()
+            # # time.sleep(5)
+
+            # self.controllers_object.reset_controllers()
+            # time.sleep(20)
+
+            # # self._check_all_systems_ready()
+            # self.arm = Arm(gripper_type=GripperType.GENERIC)
+
+            # self.gazebo.pauseSim()
+
+            rospy.logwarn("RESET CONTROLLERS")
             self.gazebo.unpauseSim()
-            self.load_controllers()
+            self.controllers_object.reset_controllers()
+            self._check_all_systems_ready()
+            self._set_init_pose()
+            self.gazebo.pauseSim()
+            self.gazebo.resetSim()
+            self.gazebo.unpauseSim()
             self.controllers_object.reset_controllers()
             self._check_all_systems_ready()
             self.gazebo.pauseSim()
-
-            # rospy.logdebug("RESET CONTROLLERS")
-            # self.gazebo.unpauseSim()
-            # self.controllers_object.reset_controllers()
-            # self._check_all_systems_ready()
-            # self._set_init_pose()
-            # self.gazebo.pauseSim()
-            # self.gazebo.resetSim()
-            # self.gazebo.unpauseSim()
-            # self.controllers_object.reset_controllers()
-            # self._check_all_systems_ready()
-            # self.gazebo.pauseSim()
 
         else:
             rospy.logwarn("DONT RESET CONTROLLERS")
@@ -175,7 +204,7 @@ class UR3GazeboEnv(gym.Env):
             self._check_all_systems_ready()
             self.gazebo.pauseSim()
 
-        rospy.logdebug("RESET SIM END")
+        rospy.logwarn("RESET SIM END")
         return True
 
     def _set_init_pose(self):
@@ -228,20 +257,49 @@ class UR3GazeboEnv(gym.Env):
     def js_cb(self,msg):
         self.js = msg
 
-    def get_joints_initial_pose(self):
+    def get_joint_initial_positions(self):
         '''
         subscibe to /joint_states until the first msg arrived --- save as initial state
         '''
-        rospy.Subscriber('joint_states', JointState, self.js_cb) 
+        rospy.Subscriber('/joint_states', JointState, self.js_cb) 
         self.js = None
-
         # Wait for the message to arrive
-        rate = rospy.Rate(10)  # 10 Hz
         while not rospy.is_shutdown() and self.js is None:
-            rate.sleep()
+            rospy.logwarn("Waiting for joint state to arrive")
 
-        ang_list = self.js.position 
-        return ang_list
+        ang_list = list(self.js.position)
+        name_list = self.js.name
+        rospy.logwarn("Recived initial joint positions")
+
+        return ang_list, name_list
+    
+    def set_model(self):
+        rospy.wait_for_service('/gazebo/set_model_configuration')
+        
+        try:
+            # Create a service proxy
+            set_model_config = rospy.ServiceProxy('/gazebo/set_model_configuration', SetModelConfiguration)
+            
+            # Model and configuration parameters
+            req = SetModelConfigurationRequest()
+            req.model_name = self.model_name  # Replace with your model name
+            req.urdf_param_name = 'robot_description'  # Typically the parameter where the URDF is stored
+            req.joint_names = self.joint_names
+            req.joint_positions = self.joint_initial_positions
+
+            print(req)
+            
+
+            # joint_positions = [0,0,0,0,0,0,0]
+            # Call the service
+            res = set_model_config(req)
+            if res.success:
+                rospy.loginfo("Set joint positions successfully.")
+            else:
+                rospy.logerr("Failed to set joint positions: %s", res.status_message)
+        
+        except rospy.ServiceException as e:
+            rospy.logerr("Service call failed: %s", e)
 
     def get_model_pose(self):
         rospy.wait_for_service('/gazebo/get_model_state')
@@ -293,3 +351,61 @@ class UR3GazeboEnv(gym.Env):
             rospy.loginfo("Spawned URDF model successfully")
         except rospy.ServiceException as e:
             rospy.logerr("Service call failed: %s", e)
+
+    def load_controllers(self):
+    
+        rospy.wait_for_service('/controller_manager/load_controller')
+        
+        try:
+            # Create a service proxy
+            load_controller_service = rospy.ServiceProxy('/controller_manager/load_controller', LoadController)
+            
+            for name in self.controllers_list:
+            # Create a request object
+                request = LoadControllerRequest()
+                request.name = name
+            
+                # Call the service
+                response = load_controller_service(request)
+                
+                if response.ok:
+                    rospy.loginfo(f"Controller '{name}' loaded successfully.")
+                else:
+                    rospy.logerr(f"Failed to load controller '{name}'.")
+                    
+        except rospy.ServiceException as e:
+            rospy.logerr(f"Service call failed: {e}")
+
+    
+    def unload_controllers(self):
+        rospy.wait_for_service('/controller_manager/unload_controller')
+        try:
+            unload_service = rospy.ServiceProxy('/controller_manager/unload_controller', UnloadController)
+            for controller in self.controllers_list:
+                response = unload_service(controller)
+                if response.ok:
+                    rospy.loginfo(f"Controller '{controller}' unloaded successfully.")
+                else:
+                    rospy.logerr(f"Failed to unload controller '{controller}'.")
+        except rospy.ServiceException as e:
+            rospy.logerr(f"Service call failed: {e}")
+
+    def stop_controllers(self):
+        rospy.wait_for_service('/controller_manager/switch_controller')
+        try:
+            switch_service = rospy.ServiceProxy('/controller_manager/switch_controller', SwitchController)
+            start_controllers = []
+            stop_controllers = self.controllers_list
+            strictness = 2  # STRICT
+            switch_request_object = SwitchControllerRequest()
+            switch_request_object.start_controllers = start_controllers
+            switch_request_object.stop_controllers = stop_controllers
+            switch_request_object.strictness = strictness
+
+            response = switch_service(switch_request_object)
+            if response.ok:
+                rospy.loginfo(f"Controllers stopped successfully: {stop_controllers}")
+            else:
+                rospy.logerr(f"Failed to stop controllers: {stop_controllers}")
+        except rospy.ServiceException as e:
+            rospy.logerr(f"Service call failed: {e}")

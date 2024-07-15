@@ -16,7 +16,11 @@ for n in range(5):
         action = env.action_space.sample()
         rospy.logerr("---------------Episode:{}, Step:{}------------------".format(n,i))
         print(action)
-        env.step(action) # take a random action
+        obs, reward, done, info = env.step(action) # take a random action
+        if done:
+            rospy.logerr("Episode:{} finish early------------------".format(n))
+
+            break
         rospy.logerr("----------------------------------------------------")
 
         

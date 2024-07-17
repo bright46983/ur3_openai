@@ -21,13 +21,22 @@ class UR3PositionEnv(ur3_env.UR3Env):
          # others variables
         # self.controllers_type = "joints_position"
         self.controllers_type = "ee_transform"
-
+        
+        # limit
         self.num_joints = 6
         self.joint_lower_limit = [-np.pi,-np.pi/2,-np.pi/2,-np.pi,-np.pi,-np.pi]
         self.joint_upper_limit = [np.pi,np.pi/2,np.pi/2,np.pi,np.pi,np.pi]
 
-        self.tran_upper_limit = [0.40,0.40,0.40,0,0,0] #  [x,y,z,roll,pitch,yaw]
-        self.tran_lower_limit = [-0.40,-0.40,-0.40,-0,-0,-0] #  [x,y,z,roll,pitch,yaw]
+        self.tran_upper_limit = [0.05,0.05,0.05,0,0,0] #  [x,y,z,roll,pitch,yaw]
+        self.tran_lower_limit = [-0.05,-0.05,-0.05,-0,-0,-0] #  [x,y,z,roll,pitch,yaw]
+
+        self.workspace_upper_limit = [0.5,0.7,0.6]#[x,y,z] ref on 'base_link'
+        self.workspace_lower_limit = [-0.5,0.1,0.05]#y pointing to table, z pointing up
+
+        # position goal
+        self.goal = self.get_random_workspace_ee_position()
+        self.goal_tolerance = 0.1
+        self.cumulative_reward = 0
 
         #self.gazebo.unpauseSim()
 
@@ -75,7 +84,9 @@ class UR3PositionEnv(ur3_env.UR3Env):
         :return:
         """
         # TODO
-        ...
+        self.is_ur3_collided = False
+        self.goal = self.get_random_workspace_ee_position()
+        self.cumulative_reward = 0
 
 
     def _get_joint_position_action_space(self)-> spaces.Box:
@@ -121,7 +132,12 @@ class UR3PositionEnv(ur3_env.UR3Env):
         :return: observations
         """
         # TODO
-        observations = np.array([1.0, 2.0, 3.0])
+        # get ee pose 
+        ee_pose = self.arm.end_effector(rot_type='euler',tip_link='gripper_tip_link') #[x, y, z, roll, pitch, yaw] np.array
+        is_collided = float(self.is_ur3_collided) # 1.0 or 0.0
+
+        observations = np.block([ee_pose[:3], is_collided])  # [ee_x,ee_y,ee_z,is_colided]
+
         return observations
 
     def _is_done(self, observations):
@@ -129,7 +145,15 @@ class UR3PositionEnv(ur3_env.UR3Env):
         Decide if episode is done based on the observations
         """
         # TODO
-        done = self.is_ur3_collided
+        is_near_goal = self.check_near_goal( observations[:3])
+        if is_near_goal:
+            rospy.loginfo("Reach Current Goal")
+
+        is_colided = bool(observations[-1])
+        if is_colided:
+            rospy.logwarn("UR3 is collided")
+
+        done = is_near_goal or is_colided
         return done
 
     def _compute_reward(self, observations, done):
@@ -138,7 +162,26 @@ class UR3PositionEnv(ur3_env.UR3Env):
         """
         # TODO
         reward = -1
+        is_near_goal = self.check_near_goal( observations[:3])
+        is_colided = bool(observations[-1])
+
+        if is_near_goal:
+            reward += 100
+        if is_colided:
+            reward -= 20
+        
+        self.cumulative_reward += reward
+        rospy.loginfo("Reward: {}".format(reward))
+        rospy.loginfo("Cumulative reward: {}".format(self.cumulative_reward))
         return reward
         
     # Internal TaskEnv Methods
+    def get_random_workspace_ee_position(self):
+        """
+        Get a random position in the workspace.
+        """
+        # TODO
+        return np.random.uniform(low=np.array(self.workspace_lower_limit), high=np.array(self.workspace_upper_limit), size=(1,3))
 
+    def check_near_goal(self, ee_pose):
+        return np.linalg.norm(self.goal.reshape(1,3) - ee_pose.reshape(1,3))  < self.goal_tolerance

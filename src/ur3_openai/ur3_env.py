@@ -65,7 +65,8 @@ class UR3Env(robot_gazebo_env.RobotGazeboEnv):
         Callback for the wrench topic.
         """
         self.wrench = msg
-        self.is_ur3_collided  = self._is_collided()
+        if not self.is_ur3_collided:
+            self.is_ur3_collided  = self._is_collided()
 
     def _is_collided(self):
         """

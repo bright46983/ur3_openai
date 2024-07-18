@@ -1,0 +1,15 @@
+<!--
+This launch can be used to train a Soft Actor-Critic (SAC) algorithm on the panda task environments found in the
+ros-gazebo-gym package. The training parameters can be set in the ros-gazebo-gym-examples/config/panda_example_training_params.yaml 
+
+Control arguments:
+    - control_type: The control type used for controlling the panda robot (Options: trajectory, position, effort, end_effector).
+    - environment_type: The panda task environment (Options: Reach, PickAndPlace, Slide, Push).
+-->
+<launch>
+    <rosparam command="load" file="$(find ur3_openai)/config/ur3_sac_params.yaml" />
+
+    <!--Launch the training system-->
+    <node pkg="ur3_openai" name="ur3_position_sac" type="ur3_position_sac.py" output="screen">
+    </node>
+</launch>

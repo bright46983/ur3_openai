@@ -63,7 +63,7 @@ class UR3Env(RobotGazeboEnv):
             robot_name_space=self.robot_name_space,
             reset_controls=reset_controls_bool,
             reset_robot_pose=True,
-            reset_world_or_sim="SIMULATION"
+            reset_world_or_sim="WORLD"
         )
 
         
@@ -78,13 +78,16 @@ class UR3Env(RobotGazeboEnv):
         operational.
         """
         # TODO: Implement the logic that checks if all sensors and actuators are ready.
-        # while not rospy.is_shutdown():
-        #     rospy.logwarn("Waiting for joint state to arrive")
-        #     print((rospy.Time.now() - self.js_timestamp).to_sec())
-        #     if  abs(rospy.Time.now() - self.js_timestamp).to_sec() < 0.2 and  abs(rospy.Time.now() - self.wrench_timestamp).to_sec() < 0.2:
-        #         break
-                
-    
+        
+        while not rospy.is_shutdown():
+            rospy.logwarn("Waiting for joint state to arrive")
+            print((rospy.Time.now() - self.js_timestamp).to_sec())
+            if  abs(rospy.Time.now() - self.js_timestamp).to_sec() < 0.2 and  abs(rospy.Time.now() - self.wrench_timestamp).to_sec() < 0.2:
+                break
+            rospy.sleep(0.1)
+
+        self.arm = Arm(gripper_type=GripperType.GENERIC)
+
         return True
 
     ################################################
@@ -152,6 +155,7 @@ class UR3Env(RobotGazeboEnv):
         if not, controller will return FAIL
         """
         print(pose)
+        pose = np.array(pose)
         res = self.arm.set_target_pose(pose=pose, wait=wait, target_time=target_time)
         rospy.logwarn("move_ee...")
 

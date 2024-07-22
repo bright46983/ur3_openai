@@ -24,7 +24,7 @@ from stable_baselines3.common.env_checker import check_env
 
 
 if __name__ == "__main__":  # noqa: C901
-    rospy.init_node('ur3_sac') #,log_level=rospy.DEBUG
+    rospy.init_node('ur3_sac',log_level=rospy.DEBUG)
 
     env = gym.make(
         "UR3TaskEnv-v0"
@@ -61,11 +61,11 @@ if __name__ == "__main__":  # noqa: C901
 
     # Initializes the algorithm that we are going to use for learning.
     torch.cuda.empty_cache()  # NOTE: Done to avoid CUDA out of memory error.
-    model = SAC("MlpPolicy", env, verbose=1, gamma=gamma, learning_rate=alpha)
+    model = SAC("MlpPolicy", env, verbose=1, gamma=gamma, learning_rate=alpha, tensorboard_log="/home/tanakrit-ubuntu/tensorboard_log/")
 
     # Train the algorithm.
     rospy.loginfo("Start training...")
-    model.learn(total_timesteps=total_timesteps, log_interval=4)
+    model.learn(total_timesteps=total_timesteps, log_interval=1,tb_log_name="first_run")
     rospy.loginfo("Training finished")
 
     # Safe policy.

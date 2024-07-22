@@ -3,7 +3,7 @@ ur3_sac_params:
   # ros_ws_abspath: "/home/user/simulation_ws"  # NOTE: Path to the ROS workspace.
 
   # Q-learning parameters.
-  alpha: 0.01     # Learning Rate.
+  alpha: 0.02     # Learning Rate.
   gamma: 1.0      # Discount factor.
   n_episodes: 2
   n_steps: 1000

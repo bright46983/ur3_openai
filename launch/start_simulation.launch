@@ -1,5 +1,5 @@
 <launch>
-    <param name="use_sim_time" value="true"/>
+    <param name="use_sim_time" value="false"/>
     <include file="$(find ur_gripper_gazebo)/launch/ur_gripper_85_cubes.launch">
           <arg name="world_name" value="$(find ur3_openai)/worlds/cubes_task.world" />
     </include>
